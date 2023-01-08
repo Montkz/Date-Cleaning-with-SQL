@@ -1,0 +1,192 @@
+/*
+
+Cleaning Data using SQL Queries
+
+*/
+
+-- Checking the data(columns)
+
+SELECT * 
+FROM dbo.NashvilleHousing;
+ 
+----------------------------------------------------------------------------------------------------------------------------
+
+-- Standardizing the SaleDate column
+
+SELECT SaleDate, CONVERT(DATE, SaleDate)
+FROM dbo.NashvilleHousing;
+
+-- Removing the time from Date and putting the date in the new column
+
+ALTER TABLE dbo.NashvilleHousing
+ADD SaleDateConverted DATE;
+
+UPDATE dbo.NashvilleHousing
+SET SaleDateConverted = CONVERT(DATE, SaleDate);
+
+----------------------------------------------------------------------------------------------------------------------------
+
+-- Populating property address column
+
+SELECT *
+FROM NashvilleHousing
+WHERE PropertyAddress IS NULL;
+-- ParcelID and PropertyAddress are corelated
+
+-- Checking the Property address against ParcelID before populating the data
+SELECT A.ParcelID, A.PropertyAddress, B.ParcelID, B.PropertyAddress
+FROM NashvilleHousing A
+JOIN NashvilleHousing B
+	ON A.ParcelID = B.ParcelID
+	AND A.[UniqueID ] <> B.[UniqueID ]
+WHERE A.PropertyAddress IS NULL;
+
+SELECT A.ParcelID, A.PropertyAddress, B.ParcelID, B.PropertyAddress, ISNULL(A.PropertyAddress, B.PropertyAddress)
+FROM NashvilleHousing A
+JOIN NashvilleHousing B
+	ON A.ParcelID = B.ParcelID
+	AND A.[UniqueID ] <> B.[UniqueID ]
+WHERE A.PropertyAddress IS NULL;
+
+-- Populating and PropertyAddress column
+UPDATE A
+SET PropertyAddress = ISNULL(A.PropertyAddress, B.PropertyAddress)
+FROM NashvilleHousing A
+JOIN NashvilleHousing B
+	ON A.ParcelID = B.ParcelID
+	AND A.[UniqueID ] <> B.[UniqueID ]
+WHERE A.PropertyAddress IS NULL;
+
+-- Checking whether the column still have NULL values or not
+SELECT *
+FROM NashvilleHousing
+WHERE PropertyAddress IS NULL;
+
+----------------------------------------------------------------------------------------------------------------------------
+
+--Seperating the Address into Individual Columns (Address, City, State)
+
+ SELECT *
+ FROM NashvilleHousing;
+
+-- Seperating the Address, City and State from OwnerAddress
+SELECT
+SUBSTRING(OwnerAddress, 0, CHARINDEX(',', OwnerAddress)) AS Address,
+SUBSTRING(OwnerAddress, CHARINDEX(',', OwnerAddress)+1, CHARINDEX(',', OwnerAddress, CHARINDEX(',', OwnerAddress)+1)-CHARINDEX(',', OwnerAddress)-1) AS City,
+SUBSTRING(OwnerAddress, CHARINDEX(',', OwnerAddress, CHARINDEX(',', OwnerAddress)+1)+1, LEN(OwnerAddress)) AS State
+FROM NashvilleHousing;
+
+--Populating the columns
+ALTER TABLE NashvilleHousing
+ADD OwnerSplitAddress VARCHAR(255);
+
+UPDATE NashvilleHousing
+SET OwnerSplitAddress = SUBSTRING(OwnerAddress, 0, CHARINDEX(',', OwnerAddress));
+
+ALTER TABLE NashvilleHousing
+ADD OwnerSplitCity VARCHAR(255);
+
+UPDATE NashvilleHousing
+SET OwnerSplitCity = SUBSTRING(OwnerAddress, CHARINDEX(',', OwnerAddress)+1, CHARINDEX(',', OwnerAddress, CHARINDEX(',', OwnerAddress)+1)-CHARINDEX(',', OwnerAddress)-1);
+
+ALTER TABLE NashvilleHousing
+ADD OwnerSplitState VARCHAR(255);
+
+UPDATE NashvilleHousing
+SET OwnerSplitState = SUBSTRING(OwnerAddress, CHARINDEX(',', OwnerAddress, CHARINDEX(',', OwnerAddress)+1)+1, LEN(OwnerAddress));
+
+
+
+-- Seperating the Address and City from PropertyAddress
+SELECT
+SUBSTRING(PropertyAddress, 0, CHARINDEX(',', PropertyAddress)) AS Address,
+SUBSTRING(PropertyAddress, CHARINDEX(',', PropertyAddress)+1, LEN(PropertyAddress)) AS City
+FROM NashvilleHousing;
+
+--Populating the columns
+ALTER TABLE NashvilleHousing
+ADD PropertySplitAddress VARCHAR(255);
+
+UPDATE NashvilleHousing
+SET PropertySplitAddress = SUBSTRING(PropertyAddress, CHARINDEX(',', PropertyAddress)+1, LEN(PropertyAddress));
+
+ALTER TABLE NashvilleHousing
+ADD PropertySplitCity VARCHAR(255);
+
+UPDATE NashvilleHousing
+SET PropertySplitCity = SUBSTRING(PropertyAddress, CHARINDEX(',', PropertyAddress)+1, LEN(PropertyAddress));
+
+SELECT *
+FROM NashvilleHousing;
+
+----------------------------------------------------------------------------------------------------------------------------
+
+-- Replacing Yes to Y and No to N in SoleAsVacant Column
+
+UPDATE NashvilleHousing
+SET SoldAsVacant =
+CASE
+WHEN SoldAsVacant = 'Yes' THEN 'Y'
+WHEN SoldAsVacant = 'No' THEN 'N'
+ELSE SoldAsVacant
+END;
+
+SELECT *
+FROM NashvilleHousing;
+
+SELECT DISTINCT(SoldAsVacant)
+FROM NashvilleHousing;
+
+----------------------------------------------------------------------------------------------------------------------------
+
+-- Removing the duplicate rows
+
+
+-- Finding Duplicate rows
+
+WITH DuplicateRows AS(
+SELECT *,
+	ROW_NUMBER() OVER (
+	PARTITION BY  ParcelID, OwnerName, OwnerAddress, SaleDate, LegalReference
+	ORDER BY UniqueID
+	) row_num
+FROM NashvilleHousing
+)
+DELETE
+FROM DuplicateRows
+WHERE row_num > 1
+
+/*
+-- rechecking the duplicate 
+WITH DuplicateRows AS(
+Select *,
+	ROW_NUMBER() OVER (
+	PARTITION BY  ParcelID, OwnerName, OwnerAddress, SaleDate, LegalReference
+	ORDER BY UniqueID
+	) row_num
+From NashvilleHousing
+)
+SELECT *
+From DuplicateRows
+Where row_num > 1
+ORDER BY OwnerAddress;
+*/
+
+----------------------------------------------------------------------------------------------------------------------------
+
+-- Deleting unused columns
+
+SELECT *
+FROM NashvilleHousing;
+
+ALTER TABLE NashvilleHousing
+DROP COLUMN PropertyAddress, SaleDate, OwnerAddress;
+
+
+
+
+
+
+
+
+
